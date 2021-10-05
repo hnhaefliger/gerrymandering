@@ -21,7 +21,7 @@ def get_state_shapefile_url(state):
     Return the url to download the openprecincts shapefile for a given state.
     '''
     file = re.findall('"zip_file_id": "*(.+?)"', get_state_html(state))[0]
-    return f'https://openprecincts.org/{state}/files/download/{file}/'
+    return f'https://openprecincts.org/files/download/{file}/'
 
 
 def get_state_geojson_url(state):
@@ -29,7 +29,7 @@ def get_state_geojson_url(state):
     Return the url to download the openprecincts geojson for a given state.
     '''
     file = re.findall('"geojson_file_id": "*(.+?)"', get_state_html(state))[0]
-    return f'https://openprecincts.org/{state}/files/download/{file}/'
+    return f'https://openprecincts.org/files/download/{file}/'
 
 
 def get_state_shapefile(state):
@@ -48,3 +48,6 @@ def get_state_geojson(state):
     with warnings.catch_warnings():  # hide verification warning
         warnings.simplefilter("ignore")
         return requests.get(get_state_geojson_url(state), verify=False, headers={'User-Agent': 'gerrymandering.py'}).content
+
+
+#https: // openprecincts.org/files/download/1f0a3612-78d2-413f-acbc-15289e4e7db7
