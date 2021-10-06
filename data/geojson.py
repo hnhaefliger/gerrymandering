@@ -38,4 +38,66 @@ def process_geojson(geojson):
             if dist > data[-1]['max_dist']:
                 data[-1]['max_dist'] = dist
 
+        data[-1]['max_dist'] = math.sqrt(data[-1]['max_dist'])
+
+    for i in range(len(data)):
+        data[i]['neighbors'] = find_neighbors(data[i], data)
+
     return data
+
+def determinant(a, b):
+    return a[0] * b[1] - a[1] * b[0]
+
+
+def intersecting(a, b, c, d):
+    try:
+        det = determinant([b[0]-a[0], b[1]-a[1]], [c[0]-d[0], c[1]-d[1]])
+        t = determinant([c[0]-a[0], c[1]-a[1]], [c[0]-d[0], c[1]-d[1]]) / det
+        u = determinant([b[0]-a[0], b[1]-a[1]], [c[0]-a[0], c[1]-a[1]]) / det
+
+        if t < 0 or u < 0 or t > 1 or u > 1:
+            return False
+        
+        else:
+            return True
+
+    except ZeroDivisionError:
+        return True
+
+
+def intersecting_polygons(a, b):
+    a = [[a[i], a[1+1]] for i in range(0, len(a), 2)]
+    b = [[b[i], b[1+1]] for i in range(0, len(b), 2)]
+
+    for i in range(-1, len(a)):
+        for j in range(-1, len(b)):
+            if intersecting(a[i], a[i+1], b[i], b[i+1]):
+                return True
+
+
+def find_neighbors(individual, group):
+    potential_neighbors = []
+
+    for i, member in enumerate(group):
+        if math.sqrt((individual['center'][0] - member['center'][0])**2 + (individual['center'][1] - member['center'][1])**2) <= member['max_dist'] + individual['max_dist']:
+            if member != individual:
+                potential_neighbors.append(i)
+
+    neighbors = []
+
+    for neighbor in potential_neighbors:
+        b = False
+
+        for individual_polygon in individual['polygons']:
+            for neighbor_polygon in group[neighbor]['polygons']:
+                if intersecting_polygons(individual_polygon, neighbor_polygon):
+                    neighbors.append(neighbor)
+                    b = True
+
+                if b: break
+
+            if b: break
+
+    return neighbors
+
+

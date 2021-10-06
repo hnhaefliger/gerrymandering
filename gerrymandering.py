@@ -10,5 +10,9 @@ with open('PA2018.geojson', 'r') as f:
 data = data.process_geojson(geojson)
 
 display = map.Map(data, width=1700, height=800)
-display.set_precinct('Warren County, cherry grove', 'red')
+display.set_precinct(data[8419]['loc, prec'], 'red')
+
+for neighbor in data[8419]['neighbors']:
+    display.set_precinct(data[neighbor]['loc, prec'], 'green')
+
 display.mainloop()
