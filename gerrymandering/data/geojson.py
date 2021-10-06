@@ -1,4 +1,6 @@
 import math
+import numpy as np
+np.seterr(all='ignore')
 from tqdm import tqdm
 
 def unpack_polygons(array):
@@ -71,14 +73,19 @@ def intersecting_polygons(a, b):
     Calculate whether two polygons are touching
     '''
     # First we find any parallel edges in the two polygons.
-    da = [(a[i+3] - a[i+1]) / (a[i+2] - a[i]) for i in range(-1, len(a)+1, 2)]
-    db = [(b[i+3] - b[i+1]) / (b[i+2] - b[i]) for i in range(-1, len(a)+1, 2)]
+    a, b = np.array(a), np.array(b)
+
+    x, y = a[::2], a[1:][::2]
+    da = (np.roll(y, 1) - y) / (np.roll(x, 1) - x)
+
+    x, y = b[::2], b[1:][::2]
+    db = (np.roll(y, 1) - y) / (np.roll(x, 1) - x)
 
     for i, c in enumerate(da):
         for j, d in enumerate(db):
             if c == d:
                 # and then we check if they are touching.
-                e, f = i*4, j*4
+                e, f = (i-1)*2, (j-1)*2
                 w, x, y, z = a[e], a[e+1], a[e+2], a[e+3]
                 s, t, u, v = b[f], b[f+1], b[f+2], b[f+3]
 

@@ -59,5 +59,8 @@ class Map:
     def mainloop(self):
         return self.root.mainloop()
 
+    def after(self, dt, function, *args, **kwargs):
+        return self.root.after(dt, function, *args, **kwargs)
+
 
 
