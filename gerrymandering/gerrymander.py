@@ -15,6 +15,11 @@ class Gerrymander:
             geojson = data.get_state_geojson(state).json()
 
         self.data = data.process_geojson(geojson)
+        '''
+        with open('processed.json', 'r') as f:
+            self.data = json.loads(f.read())
+        '''
+
         self.map = map.Map(self.data)
 
     def init_districts(self, n):
@@ -23,28 +28,41 @@ class Gerrymander:
         taken = []
 
         for i in range(n):
-            self.districts.append(random.randint(0, len(self.data)-1))
-            taken.append(self.districts[-1])
-            choices.append(self.data[self.districts[-1]['neighbors']])
+            self.districts.append([random.randint(0, len(self.data)-1)])
+            taken.append(self.districts[-1][0])
+            choices.append(self.data[self.districts[-1][0]]['neighbors'])
 
         c = self.districts[0][0]
 
         while len(taken) < len(self.data):
             for i in range(n):
                 while True:
-                    c = random.choice(choices)
-                    choices[i].remove(c)
-                    
-                    if c not in taken:
-                        taken.append(c)
-                        self.districts[i].append(c)
-                        choices[i] += self.data[c]['neighbors']
-                        choices[i] = list(set(choices[i]))
-                        break
+                    # Some districts might become locked in.
+                    if choices[i]:
+                        c = random.choice(choices[i])
+
+                        # Remove multiple occurences.
+                        choices[i] = [choice for choice in choices[i] if c != choice]
+                        
+                        # Could have been taken by a different district.
+                        if c not in taken:
+                            taken.append(c)
+                            self.districts[i].append(c)
+                            choices[i] += self.data[c]['neighbors']
+                            
+                            # Don't remove duplicates as it promotes more cohesive starting districts.
+                            # choices[i] = list(set(choices[i]))
+
+                            break
+
+                    else: break
+
+            if all([len(choice)==0 for choice in choices]):
+                break
 
         for i in range(n):
             for j in self.districts[i]:
-                self.map.set_precinct(j, ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][i%8])                 
+                self.map.set_precinct(self.data[j]['loc, prec'], ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][i%8])                 
 
     def start(self):
         self.map.mainloop()

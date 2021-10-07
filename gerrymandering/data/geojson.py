@@ -1,6 +1,6 @@
 import math
-import numpy as np
-np.seterr(all='ignore')
+#import numpy as np
+#np.seterr(all='ignore')
 from tqdm import tqdm
 
 def unpack_polygons(array):
@@ -22,7 +22,7 @@ def unpack_polygons(array):
         return polygons
 
     else:
-        return [i for j in array for i in j[:2]]
+        return [i for j in array[:-1] for i in j[:2]]
 
 
 def process_geojson(geojson):
@@ -31,11 +31,11 @@ def process_geojson(geojson):
     '''
     data = []
 
-    for feature in tqdm(geojson['features'], desc='organizing precincts'):
+    for f, feature in tqdm(enumerate(geojson['features']), desc='organizing precincts'):
         data.append({
             'polygons': unpack_polygons(feature['geometry']['coordinates']),
             'neighbors': [],
-            'not_neighbors': [],
+            #'not_neighbors': [f],
         })
 
         data[-1].update(feature['properties'])
@@ -56,40 +56,58 @@ def process_geojson(geojson):
 
     # Find all of the neighboring precincts.
     for i in tqdm(range(len(data)), desc='finding neighbors'):
-        data[i]['neighbors'], data[i]['not_neighbors'] = find_neighbors(data[i], data)
+        #data[i]['neighbors'], data[i]['not_neighbors'] = find_neighbors(data[i], data)
+        data[i]['neighbors'] = find_neighbors(data[i], data)
+
+    for i in tqdm(range(len(data)), desc='cleaning up'):
+        del data[i]['max_dist']
+        #del data[i]['not_neighbors']
 
     return data
 
 
-def ccw(a, b, c, d, e, f):
+def between(a, b, c):
     '''
-    Based on https://bryceboe.com/2006/10/23/line-segment-intersection-algorithm/
+    Check if c is between a and b.
     '''
-    return (f - b) * (c - a) > (d - b) * (e - a)
+    a, b = min((a, b)), max((a, b))
+    return a <= c and b >= c
 
+def slope(a, b, c, d):
+    '''
+    Calculate the slope of the line between (a, b) and (c, d).
+    '''
+    if c == a:
+        return 10000
+
+    else:
+        return (d - b) / (c - a)
 
 def intersecting_polygons(a, b):
     '''
     Calculate whether two polygons are touching
     '''
     # First we find any parallel edges in the two polygons.
-    a, b = np.array(a), np.array(b)
+    da = [slope(a[i], a[i+1], a[i+2], a[i+3]) for i in range(-2, len(a)-2, 2)]
+    db = [slope(b[i], b[i+1], b[i+2], b[i+3]) for i in range(-2, len(b)-2, 2)]
 
-    x, y = a[::2], a[1:][::2]
-    da = (np.roll(y, 1) - y) / (np.roll(x, 1) - x)
+    #a, b = np.array(a), np.array(b)
 
-    x, y = b[::2], b[1:][::2]
-    db = (np.roll(y, 1) - y) / (np.roll(x, 1) - x)
+    #x, y = a[::2], a[1:][::2]
+    #da = (np.roll(y, 1) - y) / (np.roll(x, 1) - x)
+
+    #x, y = b[::2], b[1:][::2]
+    #db = (np.roll(y, 1) - y) / (np.roll(x, 1) - x)
 
     for i, c in enumerate(da):
-        for j, d in enumerate(db):
-            if c == d:
-                # and then we check if they are touching.
-                e, f = (i-1)*2, (j-1)*2
-                w, x, y, z = a[e], a[e+1], a[e+2], a[e+3]
-                s, t, u, v = b[f], b[f+1], b[f+2], b[f+3]
+        for j in [i for i in range(len(db)) if abs(db[i] - c) < 1e-3]:#np.where(db == c)[0]:
+            e, f = (i-1)*2, (j-1)*2
+            w, x, y, z = a[e], a[e+1], a[e+2], a[e+3]
+            s, t, u, v = b[f], b[f+1], b[f+2], b[f+3]
 
-                if (ccw(w, x, s, t, u, v) != ccw(y, z, s, t, u, v)) and (ccw(w, x, y, z, s, t) != ccw(w, x, y, z, u, v)):
+            # and then we check if all 4 points are colinear.
+            if abs(slope(s, t, w, x) - c) < 1e-3:
+                if (between(s, u, w) and between(t, v, x)) or (between(s, u, y) and between(t, v, z)):
                     return True
 
     return False
@@ -101,21 +119,21 @@ def find_neighbors(individual, group):
     '''
     index = group.index(individual)
     neighbors = []
-    not_neighbors = []
 
     for i, member in enumerate(group):
+        # This is actually slower than just doing the math because the lists grow over time.
         # if we already know that the two precincts are neighbors there is no need to recalculate intersections.
-        if index in member['neighbors']:
-            neighbors.append(i)
+        #if index in member['neighbors']:
+        #    neighbors.append(i)
 
         # if we already know that they are not neighbors then there is no need to recalculate intersections either.
-        elif index in member['not_neighbors']:
-            not_neighbors.append(i)
+        #elif index in member['not_neighbors']:
+        #    not_neighbors.append(i)
 
         # now we check if they are actually close enough to be neighbors.
-        elif math.sqrt((individual['center'][0] - member['center'][0])**2 + (individual['center'][1] - member['center'][1])**2) <= member['max_dist'] + individual['max_dist']:
-            # there is of course, a copy of 'individual' in the group.
-            if member != individual:
+        if math.sqrt((individual['center'][0] - member['center'][0])**2 + (individual['center'][1] - member['center'][1])**2) <= member['max_dist'] + individual['max_dist']:
+            # there is, of course, a copy of 'individual' in the group. (not necessary with not_neighbors)
+            if individual != group[i]:
                 b = False
 
                 # for each of the polygons in both precincts.
@@ -130,14 +148,14 @@ def find_neighbors(individual, group):
 
                     if b: break
 
-                # if there was never a match then there is no need to check again next time.
-                if not(b):
-                    not_neighbors.append(i)
+        #    # if there was never a match then there is no need to check again next time.
+        #    if not(b):
+        #        not_neighbors.append(i)
 
         # not neighbors is used to save time calculating future precincts.
-        else:
-            not_neighbors.append(i)
+        #else:
+        #    not_neighbors.append(i)
 
-    return neighbors, not_neighbors
+    return neighbors#, not_neighbors
 
 
