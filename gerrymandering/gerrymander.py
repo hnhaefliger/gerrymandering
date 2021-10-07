@@ -24,6 +24,7 @@ class Gerrymander:
 
     def init_districts(self, n):
         self.districts = []
+        self.district_neighbors = []
         choices = []
         taken = []
 
@@ -48,21 +49,42 @@ class Gerrymander:
                         if c not in taken:
                             taken.append(c)
                             self.districts[i].append(c)
+                            # Allowing duplicates promotes cohesive districts.
                             choices[i] += self.data[c]['neighbors']
-                            
-                            # Don't remove duplicates as it promotes more cohesive starting districts.
-                            # choices[i] = list(set(choices[i]))
+                            self.data[c]['district'] = i
 
                             break
 
                     else: break
 
-            if all([len(choice)==0 for choice in choices]):
-                break
-
         for i in range(n):
             for j in self.districts[i]:
-                self.map.set_precinct(self.data[j]['loc, prec'], ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][i%8])                 
+                self.map.set_precinct(self.data[j]['loc, prec'], ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][i%8])   
+
+                self.district_neighbors += [neighbor for neighbor in self.data[j]['neighbors'] if neighbor not in self.district_neighbors and neighbor not in self.districts[i]]            
+
+    def update(self):
+        swap = random.choice(self.district_neighbors)
+        choices = [self.data[neighbor]['district'] for neighbor in self.data[swap]['neighbors'] if self.data[swap]['district'] != self.data[neighbor]['district']]
+        new_district = random.choice(choices)
+
+        self.districts[self.data[swap]['district']].remove(swap)
+        self.data[swap]['district'] = new_district
+        self.districts[new_district].append(swap)
+        self.map.set_precinct(self.data[swap]['loc, prec'], ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][new_district % 8])
+
+        for neighbor in self.data[swap]['neighbors']:
+            if any([self.data[sub_neighbor]['district'] != self.data[neighbor]['district'] for sub_neighbor in self.data[neighbor]['neighbors']]):
+                if neighbor not in self.district_neighbors:
+                    self.district_neighbors.append(neighbor)
+
+            else:
+                if neighbor in self.district_neighbors:
+                    self.district_neighbors.remove(neighbor)
+        
+    def loop(self, dt):
+        self.update()
+        self.map.after(dt, self.loop, dt)
 
     def start(self):
         self.map.mainloop()
