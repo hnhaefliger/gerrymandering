@@ -14,73 +14,70 @@ class Gerrymander:
         elif state:
             geojson = data.get_state_geojson(state).json()
 
-        self.data = data.process_geojson(geojson)
-        '''
-        with open('processed.json', 'r') as f:
-            self.data = json.loads(f.read())
-        '''
-
-        self.map = map.Map(self.data)
+        self.precincts = data.process_geojson(geojson)
+        self.map = map.Map(self.precincts)
+        self.prev_score = 0
 
     def init_districts(self, n):
-        self.districts = []
-        self.district_neighbors = []
-        choices = []
-        taken = []
+        self.districts = [data.District(self.precincts[random.randint(0, len(self.precincts)-1)], i) for i in range(n)]
+        expansions = [district.expand() for district in self.districts]
 
-        for i in range(n):
-            self.districts.append([random.randint(0, len(self.data)-1)])
-            taken.append(self.districts[-1][0])
-            choices.append(self.data[self.districts[-1][0]]['neighbors'])
+        while any(expansions):
+            expansions = [district.expand() for district in self.districts]
 
-        c = self.districts[0][0]
+        for district in self.districts:
+            for precinct in district.precincts:
+                self.map.set_precinct(precinct.name, district.color)   
 
-        while len(taken) < len(self.data):
-            for i in range(n):
-                while True:
-                    # Some districts might become locked in.
-                    if choices[i]:
-                        c = random.choice(choices[i])
+    def score(self):
+        target_vote = sorted([0, 0, 0, 0, 0, 0, 0, 0, 0])
 
-                        # Remove multiple occurences.
-                        choices[i] = [choice for choice in choices[i] if c != choice]
-                        
-                        # Could have been taken by a different district.
-                        if c not in taken:
-                            taken.append(c)
-                            self.districts[i].append(c)
-                            # Allowing duplicates promotes cohesive districts.
-                            choices[i] += self.data[c]['neighbors']
-                            self.data[c]['district'] = i
+        populations = [district.population for district in self.districts]
+        surface_area_to_perimeters = [district.surface_area_to_perimeter for district in self.districts]
+        voters = sorted([district.dem / (district.dem + district.rep) for district in self.districts])
 
-                            break
-
-                    else: break
-
-        for i in range(n):
-            for j in self.districts[i]:
-                self.map.set_precinct(self.data[j]['loc, prec'], ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][i%8])   
-
-                self.district_neighbors += [neighbor for neighbor in self.data[j]['neighbors'] if neighbor not in self.district_neighbors and neighbor not in self.districts[i]]            
+        # Lower is beter.
+        population_score = 1 - 1 / (max(populations) - min(populations))
+        surface_area_to_perimeter_score = 1 / (sum(surface_area_to_perimeters) / len(surface_area_to_perimeters))
+        voter_score = sum([(voters[i] - target_vote[i])**2 for i in range(len(voters))]) / len(voters)
+        
+        return 0.3*population_score + 0.1*surface_area_to_perimeter_score + voter_score
 
     def update(self):
-        swap = random.choice(self.district_neighbors)
-        choices = [self.data[neighbor]['district'] for neighbor in self.data[swap]['neighbors'] if self.data[swap]['district'] != self.data[neighbor]['district']]
-        new_district = random.choice(choices)
+        choices = []
 
-        self.districts[self.data[swap]['district']].remove(swap)
-        self.data[swap]['district'] = new_district
-        self.districts[new_district].append(swap)
-        self.map.set_precinct(self.data[swap]['loc, prec'], ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][new_district % 8])
+        for district in self.districts:
+            choices += district.neighbors
 
-        for neighbor in self.data[swap]['neighbors']:
-            if any([self.data[sub_neighbor]['district'] != self.data[neighbor]['district'] for sub_neighbor in self.data[neighbor]['neighbors']]):
-                if neighbor not in self.district_neighbors:
-                    self.district_neighbors.append(neighbor)
+        choice = random.choice(choices)
+        old_district = choice.district
+
+        districts = [neighbor.district for neighbor in choice.neighbors if neighbor != choice.district]
+
+        if districts:
+            new_district = random.choice(districts)
+
+            old_district.remove(choice)
+            new_district.add(choice)
+
+            self.map.set_precinct(choice.name, new_district.color)
+
+            score = self.score()
+
+            # Minimization of score
+            if score > self.prev_score:
+                if random.random() < 0.5:
+                    new_district.remove(choice)
+                    old_district.add(choice)
+
+                    self.map.set_precinct(choice.name, old_district.color)
+
+                else:
+                    self.prev_score = score
 
             else:
-                if neighbor in self.district_neighbors:
-                    self.district_neighbors.remove(neighbor)
+                self.prev_score = score
+
         
     def loop(self, dt):
         self.update()

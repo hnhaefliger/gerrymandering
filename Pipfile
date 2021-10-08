@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 requests = "*"
+shapely = "*"
+tqdm = "*"
 
 [dev-packages]
 
