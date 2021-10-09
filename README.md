@@ -2,7 +2,7 @@
 
 A gerrymanding algorithm based on [OpenPrecincts](https://openprecincts.org/)' state of Pennsylvania voter data.
 
-###
+---
 
 To prepare the data we:
 1. Determine all of the polygons in a voting precinct.
