@@ -36,7 +36,7 @@ class Map:
 
     def set_precinct(self, precinct, color):
         for i in self.precincts[precinct]:
-            self.canvas.itemconfigure(self.polygons[i], fill=color)#, outline=color)
+            self.canvas.itemconfigure(self.polygons[i], fill=color, outline=color)
 
     def mainloop(self):
         return self.root.mainloop()

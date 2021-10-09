@@ -1,4 +1,5 @@
 import shapely.ops
+import math
 import random
 
 class District:
@@ -6,9 +7,9 @@ class District:
         base_precinct.district = self
         self.precincts = [base_precinct]
         self.neighbors = base_precinct.neighbors
-        self.shape = base_precinct.shape.buffer(1e-1)
-        self.perimeter = self.shape.length
-        self.area = self.shape.area
+        #self.shape = base_precinct.shape.buffer(1e-1)
+        #self.perimeter = self.shape.length
+        #self.area = self.shape.area
         self.i = i
         self.color = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'pink'][i % 8]
 
@@ -18,17 +19,17 @@ class District:
     def add(self, other_precinct):
         other_precinct.district = self
         self.precincts.append(other_precinct)
-        self.shape = self.shape.union(other_precinct.shape.buffer(1e-1))
-        self.perimeter = self.shape.length
-        self.area = self.shape.area
+        #self.shape = self.shape.union(other_precinct.shape.buffer(1e-1))
+        #self.perimeter = self.shape.length
+        #self.area = self.shape.area
         self.calculate_neighbors()
 
     def remove(self, other_precinct):
         other_precinct.district = None
         self.precincts.remove(other_precinct)
-        self.shape = shapely.ops.unary_union([precinct.shape.buffer(1e-1) for precinct in self.precincts])
-        self.perimeter = self.shape.length
-        self.area = self.shape.area
+        #self.shape = shapely.ops.unary_union([precinct.shape.buffer(1e-1) for precinct in self.precincts])
+        #self.perimeter = self.shape.length
+        #self.area = self.shape.area
         self.calculate_neighbors()
 
     def expand(self):
@@ -65,5 +66,15 @@ class District:
     @property
     def rep(self):
         return sum([precinct.rep for precinct in self.precincts])
+
+    @property
+    def avg_dist(self):
+        center = [
+            sum([precinct.center[0] for precinct in self.precincts]) / len(self.precincts),
+            sum([precinct.center[1] for precinct in self.precincts]) / len(self.precincts),
+        ]
+
+        distances = [math.sqrt((precinct.center[0] - center[0])** 2 + (precinct.center[1] - center[1])**2) for precinct in self.precincts]
+        return sum(distances) / len(distances)
 
     

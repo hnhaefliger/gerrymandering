@@ -30,18 +30,20 @@ class Gerrymander:
                 self.map.set_precinct(precinct.name, district.color)   
 
     def score(self):
-        target_vote = sorted([0, 0, 0, 0, 0, 0, 0, 0, 0])
+        target_vote = sorted([0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4])
 
         populations = [district.population for district in self.districts]
-        surface_area_to_perimeters = [district.surface_area_to_perimeter for district in self.districts]
+        #surface_area_to_perimeters = [district.surface_area_to_perimeter for district in self.districts]
+        #distances = [district.avg_dist for district in self.districts]
         voters = sorted([district.dem / (district.dem + district.rep) for district in self.districts])
 
         # Lower is beter.
         population_score = 1 - 1 / (max(populations) - min(populations))
-        surface_area_to_perimeter_score = 1 / (sum(surface_area_to_perimeters) / len(surface_area_to_perimeters))
+        #surface_area_to_perimeter_score = 1 / (sum(surface_area_to_perimeters) / len(surface_area_to_perimeters))
+        #distance_score = 1 - 1 / (sum(distances) / len(distances))
         voter_score = sum([(voters[i] - target_vote[i])**2 for i in range(len(voters))]) / len(voters)
         
-        return 0.3*population_score + 0.1*surface_area_to_perimeter_score + voter_score
+        return 0.3*population_score + voter_score# + 0.3 * distance_score# + 0.1*surface_area_to_perimeter_score
 
     def update(self):
         choices = []
